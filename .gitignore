@@ -1,4 +1,3 @@
-
 .DS_Store
 *.profraw
 *.profdata
@@ -11,3 +10,5 @@ CMakeScripts
 Testing
 install_manifest.txt
 compile_commands.json
+*.bc
+PLCAnalyzer/PLCAnalyzer/*.so
