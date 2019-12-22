@@ -50,7 +50,7 @@ struct Transition{
 namespace {
 
     struct PLCAnalyzer : public ModulePass {
-        
+
         static char ID;
 
         //critical_paths include all paths that is critical inside a function
@@ -74,7 +74,7 @@ namespace {
         PLCAnalyzer() : ModulePass(ID) {}
 
         bool runOnModule(Module &M) override {
-            
+
             // Find out depenences for each function
             // Fill critical_paths and potential_paths
             for (Module::iterator f = M.begin(); f != M.end(); f ++) {
@@ -104,12 +104,12 @@ namespace {
                     errs() << "\n" << s << ": \n";
 
                     for (auto iter = critical_paths[F].begin(); iter != critical_paths[F].end(); ++iter) {
-                        
+
                         Value *v = iter -> first;
                         vector<vector<pair<Value *, int>>> paths = iter -> second;
 
                         critical_values[F][v] = true;
-                        
+
                         for (auto path : paths) {
                             for (int i = paths.size() - 1; i >= 0; i --) {
                                 auto element = path[i];
@@ -124,7 +124,7 @@ namespace {
 
             errs() << "\n\nInter-procedure critical paths:\n\n";
 
-            // Critical paths connecting by calls 
+            // Critical paths connecting by calls
             for (Module::iterator f = M.begin(); f != M.end(); f ++) {
 
                 Function *F = &(*f);
@@ -319,7 +319,7 @@ namespace {
 
             // Initialization
             for (Function::iterator b = F -> begin(); b != F -> end(); b++) {
-                
+
                 BasicBlock *bb = &(*b);
 
                 vector<BasicBlock *> bb_path;
@@ -336,7 +336,7 @@ namespace {
                     block_number[bb_temp] = i ++;
                 }
 
-                if (dyn_cast<TerminatorInst>(bb -> getTerminator()) -> getNumSuccessors() == 0){
+                if (bb -> getTerminator() -> getNumSuccessors() == 0){
                     ret[bb] = set<BasicBlock *>();
                     exit_block = bb;
                     ret[bb].insert(bb);
@@ -350,12 +350,12 @@ namespace {
                 change = false;
 
                 for (Function::iterator b = F -> begin(); b != F -> end(); b++) {
-                    
+
                     BasicBlock *bb = &(*b);
 
                     if (bb == exit_block) continue;
 
-                    TerminatorInst *term_inst = dyn_cast<TerminatorInst>(bb -> getTerminator());
+                    Instruction *term_inst = bb -> getTerminator();
 
                     set<BasicBlock *> temp;
 
@@ -424,9 +424,9 @@ namespace {
             map<BasicBlock *, vector<BasicBlock *>> anti_flow;
 
             for (Function::iterator b = F -> begin(); b != F -> end(); b++) {
-                
+
                 BasicBlock *bb = &(*b);
-                TerminatorInst *term_inst = dyn_cast<TerminatorInst>(bb -> getTerminator());
+                Instruction *term_inst = bb -> getTerminator();
 
                 for (int i = 0; i < term_inst -> getNumSuccessors(); ++i) {
                     anti_flow[term_inst -> getSuccessor(i)].push_back(bb);
@@ -448,7 +448,7 @@ namespace {
                 // (2) any related critical values in the contro flow
                 set<Value *> effected_vars;
                 set<Value *> related_critical_values;
-                
+
                 //stack construction
                 set<BasicBlock *> visited;
                 vector<pair<BasicBlock *, BasicBlock *>> block_stack;
@@ -472,7 +472,7 @@ namespace {
                     while (search_stack.size() && search_stack.back().second != cur_pair.first) {
 
                         //pop the corresponding post_dominators as well
-                        if (post_dominators.size() && 
+                        if (post_dominators.size() &&
                             search_stack.back().second == post_dominators.back()) {
                             post_dominators.pop_back();
                         }
@@ -484,7 +484,7 @@ namespace {
 
                     // all preccessors
                     for (auto precessor : anti_flow[cur_block]) {
-                        
+
                         //visited node
                         if (visited.count(precessor) > 0) continue;
                         else visited.insert(precessor);
@@ -493,7 +493,7 @@ namespace {
 
                         BranchInst *br_inst = dyn_cast<BranchInst>(precessor -> getTerminator());
 
-                        //If a basic block is post dominated by our current bb, its branch does not affect the execution of 
+                        //If a basic block is post dominated by our current bb, its branch does not affect the execution of
                         //current bb, so we will ignore this case.
                         //Otherwise, we should consider if the branch condition is related with any critical values.
                         //And put the new basic block as our next "current" bb
@@ -516,7 +516,7 @@ namespace {
                 for (auto iter = bb -> begin(); iter != bb -> end(); ++ iter) {
 
                     Instruction *inst = &(*iter);
-                    
+
                     if (StoreInst *store_inst = dyn_cast<StoreInst>(inst)) {
 
                         effected_vars.insert(store_inst -> getOperand(1));
@@ -536,7 +536,7 @@ namespace {
                     }
                     errs() << "\nRelated Variables: ";
 
-                    for (auto v : effected_vars) 
+                    for (auto v : effected_vars)
                         errs() << getOriginalName(v, F) << " ";
 
                     errs() << "\n\n";
@@ -572,7 +572,7 @@ namespace {
                 else queried.insert(cur);
 
                 while (search_stack.size() && search_stack.back().second != pre) {
-                    
+
                     if (dyn_cast<LoadInst>(search_stack.back().second))
                         load_stack.pop_back();
 
@@ -580,7 +580,7 @@ namespace {
                 }
 
                 search_stack.push_back(make_pair(pre, cur));
-                
+
                 // Memory Phi
                 if (MemoryPhi *phi = dyn_cast<MemoryPhi>(cur)) {
                     for (auto &op : phi -> operands()) {
@@ -599,7 +599,7 @@ namespace {
 
                         if (critical_values[F][def -> getMemoryInst()]) {
                             related_value.insert(def -> getMemoryInst());
-                        }   
+                        }
                     }
 
                     // MemorySSA does not ensure phi always to point to the correct store instruction
@@ -615,7 +615,7 @@ namespace {
                     if (GlobalValue *gv = dyn_cast<GlobalValue>(load_inst -> getOperand(0))){
 
                         related_value.insert(gv);
-                    }    
+                    }
 
                     load_stack.push_back(load_inst -> getOperand(0));
 
@@ -629,24 +629,24 @@ namespace {
                     for (int j = 0; j < inst -> getNumOperands(); ++ j) {
 
                         Value *v = inst-> getOperand(j);
-                    
+
                         if (Constant *c = dyn_cast<Constant>(v)) {
-                    
+
                             //global variable
-                            if (GlobalValue *gv = dyn_cast<GlobalValue>(c)) {    
+                            if (GlobalValue *gv = dyn_cast<GlobalValue>(c)) {
                                 related_value.insert(gv);
                             }
-                            
+
                             //A real constant otherwise
                             continue;
                         }
-                    
+
                         else if (Instruction *next_inst = dyn_cast<Instruction>(v)) {
-                        
+
                             stack.push_back(make_pair(inst, next_inst));
                         }
 
-                        // Related with a input value 
+                        // Related with a input value
                         // (should not go to this step if dataflow analysis is properly executed)
                         else {
                             related_value.insert(v);
@@ -664,7 +664,7 @@ namespace {
         void callDependence(Function *F, int arg_num) {
 
             // All potential paths connected to the critical argument can form
-            // new critical paths. 
+            // new critical paths.
             for (auto path : potential_paths[F][arg_num]) {
 
                 if (path.front().second == -1) {
@@ -685,7 +685,7 @@ namespace {
                 critical_values[F][path.front().first] = true;
 
                 errs() << "\n";
-                
+
             }
 
 
@@ -725,8 +725,8 @@ namespace {
 
                     }
                 }
-            }                
-            
+            }
+
         }
 
 
@@ -734,7 +734,7 @@ namespace {
         bool functionMemoryDependence(Function &F) {
 
             MemorySSA *MSSA = &getAnalysis<MemorySSAWrapperPass>(F).getMSSA();
-            std::vector<Value *> store_list;    
+            std::vector<Value *> store_list;
 
             errs() << "\n\n";
             errs().write_escaped(F.getName()) << "\n";
@@ -751,18 +751,18 @@ namespace {
             errs() << "\n";
 
             map<Function *, vector<Value *>> arguments;
-            
+
 
             for (Function::iterator b = F.begin(); b != F.end(); b++) {
-                
+
                 BasicBlock *bb = &(*b);
-                
+
                 for (BasicBlock::iterator i_iter = bb -> begin(); i_iter != bb -> end(); ++ i_iter) {
                     Instruction *I = &(*i_iter);
 
                     // Values should be paid attention to: store(direct/critical) and call(inderect/potential)
                     if (I -> getOpcode() == Instruction::Store) {
-                        store_list.push_back(I);                        
+                        store_list.push_back(I);
                     }
 
                     if (I -> getOpcode() == Instruction::Call) {
@@ -795,7 +795,7 @@ namespace {
             // Iterate through all notable values that we stored
             for (int i = 0; i < store_list.size(); i ++) {
 
-                // Use pair<Value *, Value *> instead of Value * to retrieve the information 
+                // Use pair<Value *, Value *> instead of Value * to retrieve the information
                 // of connection
 
                 call_arg_flag = false;
@@ -804,7 +804,7 @@ namespace {
                 vector<pair<Value *, Value *>> stack;
 
                 // Specially designed load_stack, used to check the nearest load instruction,
-                // helping us to determine if a store is correctly pointed to the value we 
+                // helping us to determine if a store is correctly pointed to the value we
                 // are querying
                 vector<Value *> load_stack;
 
@@ -812,7 +812,7 @@ namespace {
                 if (StoreInst * store_inst = dyn_cast<StoreInst>(store_list[i])) {
 
                     load_stack.push_back(store_inst -> getOperand(1));
-                
+
                     MemoryDef *MA = dyn_cast<MemoryDef>(MSSA -> getMemoryAccess(store_inst));
 
                     if (MA && MA -> getID()){
@@ -821,7 +821,7 @@ namespace {
                             errs() << " " << store_inst -> getOperand(1) -> getName() << ": \n";
                         }
                         else {
-                            errs() << " " << getOriginalName(store_inst -> getOperand(1), &F) << ": \n"; 
+                            errs() << " " << getOriginalName(store_inst -> getOperand(1), &F) << ": \n";
                         }
                     }
 
@@ -870,7 +870,7 @@ namespace {
                             to_query.push_back(make_pair<Value *, Value *>(dyn_cast<Value>(dd), dyn_cast<Value>(op)));
                         }
                     }
-                    
+
                     // Memory Def
                     else if (MemoryDef *def = dyn_cast<MemoryDef>(dd)) {
 
@@ -882,7 +882,7 @@ namespace {
                         // Correct store related to our load instruction
                         if (def && def -> getMemoryInst() -> getOperand(1) == load_stack.back()) {
 
-                            to_query.push_back(make_pair(dd, def -> getMemoryInst()));   
+                            to_query.push_back(make_pair(dd, def -> getMemoryInst()));
                         }
 
                         // Not the correct store to the given load
@@ -897,13 +897,13 @@ namespace {
 
                         // Normal store instruction
                         if (d -> getOpcode () == Instruction::Store) {
-                            
+
                             MemoryDef *MD = dyn_cast<MemoryDef>(MSSA -> getMemoryAccess(d));
                             Value *v = d -> getOperand(0);
-                            
+
                             // The value to store is of general constant tpye
                             if (Constant* CI = dyn_cast<Constant>(v)) {
-                            
+
                                 // Global variable (critical)
                                 if (GlobalValue *gv = dyn_cast<GlobalValue>(CI)) {
 
@@ -921,9 +921,9 @@ namespace {
 
                                     errs() << "related constant: " << CI -> getUniqueInteger() << "\n";
                                 }
-                            
+
                                 continue;
-                            
+
                             }
 
                             // to store a register value, which is not a instruction
@@ -958,13 +958,13 @@ namespace {
                                 to_query.push_back(make_pair(dd, dyn_cast<Instruction>(v)));
                             }
                         }
-                        
+
                         // Load Instruction
                         else if (d -> getOpcode() == Instruction::Load) {
 
-                            // Load dierectly from a global variable
+                            // Load directly from a global variable
                             if (GlobalValue *gv = dyn_cast<GlobalValue>(d -> getOperand(0))){
-                                
+
                                 vector<pair<Value *, int>> critical_path = printPath(stack, &F);
 
                                 critical_path.push_back(make_pair(d -> getOperand(0), 0));
@@ -973,21 +973,21 @@ namespace {
                                 errs() <<"related global value: " << gv ->getName() << "\n";
 
                                 continue;
-                            }    
+                            }
 
-                            // Otherwise, use MemroySSA to find all its reaching definitions
+                            // Otherwise, use MemorySSA to find all its reaching definitions
                             load_stack.push_back(dyn_cast<LoadInst>(d) -> getOperand(0));
 
                             MemoryUse *MU = dyn_cast<MemoryUse>(MSSA -> getMemoryAccess(d));
                             MemoryAccess *UO = MU -> getDefiningAccess();
-                            
+
                             if (MemoryDef *MD = dyn_cast<MemoryDef>(UO)) {
 
                                 to_query.push_back(make_pair(dd, MD));
                             }
-                            
+
                             else {
-                            
+
                                 to_query.push_back(make_pair(dd, UO));
                             }
                         }
@@ -999,13 +999,13 @@ namespace {
                             for (int j = 0; j < d -> getNumOperands(); ++ j) {
 
                                 Value *v = d -> getOperand(j);
-                            
-                                // A general Constant tpye
+
+                                // A general Constant type
                                 if (Constant *c = dyn_cast<Constant>(v)) {
-                                    
-                                    // A global vairable
+
+                                    // A global variable
                                     if (GlobalValue *gv = dyn_cast<GlobalValue>(c)) {
-                                        
+
                                         vector<pair<Value *, int>> critical_path = printPath(stack, &F);
 
                                         errs() << "related global value: " << gv -> getName() << "\n";
@@ -1017,20 +1017,20 @@ namespace {
 
                                     // A real constant
                                     else {
-                                        
+
                                         printPath(stack, &F);
                                         errs() << "related constant: " << c -> getUniqueInteger() << "\n";
                                     }
-                            
+
                                     continue;
-                            
+
                                 }
-                            
+
                                 // A normal instruction
                                 else if (Instruction *inst = dyn_cast<Instruction>(v)) {
-                                
+
                                     to_query.push_back(make_pair(dd, inst));
-                                    
+
                                 }
 
                                 // A register that is not a instruction: must be an input value.
@@ -1062,7 +1062,7 @@ namespace {
                         }
                     }
 
-                    
+
                 }
             }
 
@@ -1074,7 +1074,7 @@ namespace {
         vector<pair<Value *, int>> printPath(vector<pair<Value *, Value *>> &v, Function *F) {
 
             vector<pair<Value *, int>> ret;
-            
+
             for (auto tmp : v) {
 
                 Value *val = tmp.second;
@@ -1097,22 +1097,22 @@ namespace {
             for (auto iter = F -> begin(); iter != F -> end(); ++iter) {
 
                 BasicBlock *bb = &(*iter);
-                
+
                 for (auto iter_i = bb -> begin(); iter_i != bb -> end(); ++ iter_i){
-                
+
                     Instruction* I = &*iter_i;
-                    
+
                     // llvm.debug.delare
                     if (DbgDeclareInst* dbg_declare = dyn_cast<DbgDeclareInst>(I)) {
-                
-                        if (dbg_declare -> getAddress() == V) 
+
+                        if (dbg_declare -> getAddress() == V)
                             return dbg_declare -> getVariable();
-                    } 
+                    }
 
                     // llvm.debug.value
                     else if (DbgValueInst* dbg_value = dyn_cast<DbgValueInst>(I)) {
 
-                        if (dbg_value -> getValue() == V) 
+                        if (dbg_value -> getValue() == V)
                             return dbg_value -> getVariable();
                     }
                 }
@@ -1132,12 +1132,12 @@ namespace {
             if (V -> hasName()) return V -> getName();
 
             MDNode* var = findVar(V, F);
-            
-            if (var == NULL) 
+
+            if (var == NULL)
                 return "UNKNOWN";
 
-            else 
-                return dyn_cast<DIVariable>(Var) -> getName();
+            else
+                return dyn_cast<DIVariable>(var) -> getName();
         }
 
         void getAnalysisUsage(AnalysisUsage &AU) const {

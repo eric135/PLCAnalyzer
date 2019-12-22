@@ -3,6 +3,7 @@ project(PLCAnalyzer)
 
 find_package(LLVM REQUIRED CONFIG)
 list(APPEND CMAKE_MODULE_PATH "${LLVM_CMAKE_DIR}")
+include(HandleLLVMOptions)
 include(AddLLVM)
 
 add_definitions(${LLVM_DEFINITIONS})
